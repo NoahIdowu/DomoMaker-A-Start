@@ -1,3 +1,4 @@
+require('dotenv').config();
 const path = require("path");
 const express = require("express");
 const compression = require("compression");
@@ -6,6 +7,8 @@ const mongoose = require('mongoose');
 const expressHandlebars = require('express-handlebars');
 const helmet = require('helmet');
 const session = require('express-session');
+const RedisStore = require('connect-redis').RedisStore;
+const redis = require('redis');
 
 const router = require('./router.js');
 
@@ -19,6 +22,13 @@ mongoose.connect(dbURI).catch((err) => {
     }
 });
 
+const redisClient = redis.createClient({ 
+    url: process.env.REDISCLOUD_URL 
+});
+
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+
+redisClient.connect().then(() => {
 const app = express();
 app.use(helmet());
 app.use('/assets', express.static(path.resolve(`${__dirname}/../hosted`)));
@@ -29,6 +39,7 @@ app.use(express.json());
 
 app.use(session({
     key: 'sessionid',
+    store: new RedisStore({ client: redisClient }),
     // The secret is a private string used as a seed for hashing/creating unique session
     // keys. This makes it so your unique session keys are different from other servers
     // using express. The secret can be changed to anything you want, but will invalidate
@@ -53,3 +64,5 @@ app.listen(port, (err) => {
     if (err) { throw err; }
     console.log(`Listening on port ${port}`);
 });
+});
+
